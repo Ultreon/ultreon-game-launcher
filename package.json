@@ -99,9 +99,12 @@
     "electron-debug": "^3.2.0",
     "electron-log": "^4.4.8",
     "electron-updater": "^6.1.4",
+    "net": "^1.0.2",
     "react": "^18.2.0",
+    "react-devtools": "^4.28.5",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.16.0"
+    "react-router-dom": "^6.16.0",
+    "request": "^2.88.2"
   },
   "devDependencies": {
     "@electron/notarize": "^2.1.0",
@@ -116,6 +119,7 @@
     "@types/react": "^18.2.21",
     "@types/react-dom": "^18.2.7",
     "@types/react-test-renderer": "^18.0.1",
+    "@types/request": "^2.48.12",
     "@types/terser-webpack-plugin": "^5.0.4",
     "@types/webpack-bundle-analyzer": "^4.6.0",
     "@typescript-eslint/eslint-plugin": "^6.7.0",
@@ -151,9 +155,9 @@
     "jest-environment-jsdom": "^29.7.0",
     "mini-css-extract-plugin": "^2.7.6",
     "prettier": "^3.0.3",
+    "react-icons": "^4.12.0",
     "react-refresh": "^0.14.0",
     "react-test-renderer": "^18.2.0",
-    "react-icons": "^4.12.0",
     "rimraf": "^5.0.1",
     "sass": "^1.67.0",
     "sass-loader": "^13.3.2",

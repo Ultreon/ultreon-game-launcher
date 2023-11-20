@@ -198,12 +198,8 @@ export default class MenuBuilder {
         label: '&File',
         submenu: [
           {
-            label: '&Open',
-            accelerator: 'Ctrl+O',
-          },
-          {
             label: '&Close',
-            accelerator: 'Alt+F4',
+            accelerator: 'Ctrl+F4',
             click: () => {
               this.mainWindow.close();
             },
@@ -268,6 +264,38 @@ export default class MenuBuilder {
                 'https://github.com/Ultreon/ultreon-game-launcher',
               );
             },
+          },
+          {
+            label: 'Ultracraft Help',
+            submenu: [
+              {
+                label: 'Homepage',
+                click() {
+                  shell.openExternal('https://ultreon.github.io/ultracraft');
+                },
+              },
+              {
+                label: 'GitHub Issues',
+                click() {
+                  shell.openExternal(
+                    'https://github.com/Ultreon/ultracraft/issues',
+                  );
+                },
+              },
+            ],
+          },
+          {
+            label: 'Bubble Blaster Help',
+            submenu: [
+              {
+                label: 'GitHub Issues',
+                click() {
+                  shell.openExternal(
+                    'https://github.com/Ultreon/bubble-blaster-2/issues',
+                  );
+                },
+              },
+            ],
           },
         ],
       },

@@ -30,8 +30,13 @@ html {
   padding: 0;
 }
 
-.Button, .PlayButton {
+.Button {
   min-width: 128px;
+}
+
+.Button.Disabled {
+  background-color: #fff5;
+  cursor: default;
 }
 
 button {
@@ -49,11 +54,19 @@ button {
 }
 
 button:focus {
-  outline: 4px solid #fff7;
+  outline: 4px solid #fff4;
 }
 
 button:active {
-  outline: 4px solid #fff7;
+  outline: 4px solid #fff4;
+}
+
+button:focus.Disabled {
+  outline: 4px solid #fff2;
+}
+
+button:active {
+  outline: 4px solid #fff2;
 }
 
 button:hover {
@@ -100,16 +113,20 @@ a:hover {
   background: #000a;
 }
 
-.PlayButton {
+#PlayButton {
   display: block;
   justify-self: center;
   align-self: baseline;
+  border: 1px solid #fff2;
+  background: transparent;
+  color: #fff6;
+  font-weight: bolder;
   height: 100%;
 }
 
 .TitleBar {
   position: fixed;
-  top: 16px;
+  top: 0;
   left: 16px;
   width: calc(100vw - 32px);
   padding: 8px;
@@ -124,8 +141,11 @@ a:hover {
 
 .TitleButtonsOther {
   position: absolute;
-  top: -4px;
-  right: 12px;
+  top: 12px;
+  left: 0;
+  width: calc(100% - 12px);
+  display: flex;
+  justify-content: space-between;
 }
 
 .TitleButton {
@@ -133,17 +153,76 @@ a:hover {
   width: 32px;
   padding: 4px;
   padding-top: 7px;
+  margin-right: 8px;
+  border-radius: 8px;
   margin: 0;
   -webkit-app-region: no-drag;
 }
 
-.TitleButton:last-of-type:hover {
+.TitleButton:last-child:hover {
   background-color: #f137;
   border-color: #f133;
   color: white;
 }
 
+.TitleButton.Begin {
+  display: inline;
+  justify-self: begin;
+  align-self: flex-start;
+}
+
+.TitleButton.End {
+  display: inline;
+  justify-self: end;
+  align-self: flex-end;
+}
+
 * {
-  -webkit-user-select: none;
+  user-select: none;
   -webkit-user-drag: none;
+}
+
+#SidePanel {
+  position: fixed;
+  top: 64px;
+  left: -532px;
+  width: 250px;
+  height: calc(100vh - 32px - 96px - 64px);
+  background: #000a;
+  border-radius: 8px;
+  transition: left ease-in 600ms;
+  padding: 8px;
+}
+
+#SidePanel.Opened {
+  left: 16px;
+  transition: left ease-out 600ms;
+}
+
+button.GameEntry {
+  border-radius: 0;
+  background-color: transparent;
+  color: #fffa;
+  border: 1px solid #fff2;
+  width: 100%;
+  box-shadow: none;
+}
+
+button.GameEntry:hover {
+  background-color: #fff2;
+}
+
+button.GameEntry:last-child {
+  border-bottom-right-radius: 8px;
+  border-bottom-left-radius: 8px;
+}
+
+button.GameEntry:first-child {
+  border-top-right-radius: 8px;
+  border-top-left-radius: 8px;
+}
+
+button.GameEntry:not(:last-child) {
+  margin-bottom: -1px;
+  border-bottom: 0;
 }
