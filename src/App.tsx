@@ -2,55 +2,12 @@ import { MouseEvent, ReactElement } from 'react';
 import './App.css';
 import { invoke } from '@tauri-apps/api'
 import { FaBars, FaX } from 'react-icons/fa6';
-import { json } from 'node:stream/consumers';
-
-class Game {
-  id: string;
-
-  name: string;
-
-  constructor(id: string, name: string = 'Unknown Game') {
-    this.id = id;
-    this.name = name;
-  }
-}
-
-const GAMES = [
-  new Game('ultracraft', 'Ultracraft'),
-  new Game('bubble-blaster-je', 'Bubble Blaster Java'),
-  new Game('bubble-blaster-py', 'Bubble Blaster Python'),
-  new Game('bubble-blaster-py', 'Bubble Blaster Python'),
-  new Game('bubble-blaster-py', 'Bubble Blaster Python'),
-  new Game('bubble-blaster-py', 'Bubble Blaster Python'),
-  new Game('bubble-blaster-py', 'Bubble Blaster Python'),
-  new Game('bubble-blaster-py', 'Bubble Blaster Python'),
-  new Game('bubble-blaster-py', 'Bubble Blaster Python'),
-  new Game('bubble-blaster-py', 'Bubble Blaster Python'),
-  new Game('bubble-blaster-py', 'Bubble Blaster Python'),
-  new Game('bubble-blaster-py', 'Bubble Blaster Python'),
-  new Game('bubble-blaster-py', 'Bubble Blaster Python'),
-  new Game('bubble-blaster-py', 'Bubble Blaster Python'),
-  new Game('bubble-blaster-py', 'Bubble Blaster Python'),
-  new Game('bubble-blaster-py', 'Bubble Blaster Python'),
-  new Game('bubble-blaster-py', 'Bubble Blaster Python'),
-  new Game('bubble-blaster-py', 'Bubble Blaster Python'),
-];
-
-let SDKS: any;
-
-fetch('https://ultreon.github.io/metadata/sdks.json')
-  .then((res) => {
-    if (res.ok) {
-      SDKS = res.json();
-      return undefined;
-    }
-  })
-  .catch(() => null);
+import { GAMES, Game } from './Games';
 
 var selectedGame: Game | null = null;
 
 function MenuButton() {
-  function ToggleMenu(event: MouseEvent<HTMLButtonElement, globalThis.MouseEvent>): void {
+  function ToggleMenu(_event: MouseEvent<HTMLButtonElement, globalThis.MouseEvent>): void {
     const elem = document.getElementById("SidePanel");
     if (elem !== null) {
       if (elem.classList.contains('Opened')) {
@@ -63,7 +20,7 @@ function MenuButton() {
 
   return (
     // eslint-disable-next-line jsx-a11y/control-has-associated-label
-    <button className="TitleButton Begin" onClick={event => ToggleMenu(event)} type="button">
+    <button className="TitleButton Icon Begin" onClick={event => ToggleMenu(event)} type="button">
       <FaBars />
     </button>
   );
@@ -76,8 +33,21 @@ function CloseButton() {
 
   return (
     // eslint-disable-next-line jsx-a11y/control-has-associated-label
-    <button className="TitleButton End" onClick={Close} type="button">
+    <button className="TitleButton Icon End" onClick={Close} type="button">
       <FaX />
+    </button>
+  );
+}
+
+function ImportButton() {
+  function Import(_event: MouseEvent<HTMLButtonElement, globalThis.MouseEvent>): void {
+    
+  }
+
+  return (
+    // eslint-disable-next-line jsx-a11y/control-has-associated-label
+    <button className="TitleButton Begin" onClick={Import} type="button">
+      Import
     </button>
   );
 }
@@ -86,7 +56,10 @@ function TitleButtonsOther() {
   return (
     <div>
       <div className="TitleButtonsOther" data-tauri-drag-region>
-        <MenuButton />
+        <div className='TitleButtonGroup Begin'>
+          <MenuButton />
+          <ImportButton />
+        </div>
         <TitleBarText />
         <CloseButton />
       </div>

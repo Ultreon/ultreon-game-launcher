@@ -1,0 +1,316 @@
+/*
+ * @NOTE: Prepend a `~` to css file paths that are in your node_modules
+ *        See https://github.com/webpack-contrib/sass-loader#imports
+ */
+ body {
+  position: relative;
+  color: white;
+  height: 100vh;
+  background: linear-gradient(
+    200.96deg,
+    #fedc2a -29.09%,
+    #dd5789 51.77%,
+    #7a2c9e 129.35%
+  );
+  /* background-image: url("banner.png");
+  background-size: cover; */
+  background-color: transparent;
+  font-family: sans-serif;
+  overflow-y: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  border-radius: 16px;
+  margin: 0;
+  z-index: -1000;
+}
+
+html {
+  background: #00000001;
+  margin: 0;
+  padding: 0;
+}
+
+.Button {
+  min-width: 128px;
+}
+
+.Button.Disabled {
+  background-color: #fff5;
+  cursor: default;
+}
+
+button {
+  background-color: #fffa;
+  backdrop-filter: blur(24px);
+  border: 0;
+  padding: 8px 16px;
+  border-radius: 5px;
+  appearance: none;
+  font-size: 1rem;
+  box-shadow: 0px 8px 28px -6px rgba(24, 24, 24, 0.6);
+  transition: all ease-in 0.1s;
+  cursor: pointer;
+  opacity: 0.9;
+  outline: none;
+  z-index: 0;
+}
+
+button:focus {
+  outline: 4px solid #fff4;
+  z-index: 10;
+}
+
+button:active {
+  outline: 4px solid #fff4;
+  z-index: 10;
+}
+
+button:focus.Disabled {
+  outline: 4px solid #fff2;
+}
+
+button:active {
+  outline: 4px solid #fff2;
+  z-index: 10;
+}
+
+button:hover {
+  background-color: white;
+  color: #000a;
+}
+
+li {
+  list-style: none;
+}
+
+a {
+  text-decoration: none;
+  height: fit-content;
+  width: fit-content;
+  margin: 10px;
+}
+
+a:hover {
+  opacity: 1;
+  text-decoration: none;
+}
+
+.Hello {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 20px 0;
+}
+
+.BottomPanel {
+  display: flex;
+  justify-content: center;
+  align-content: baseline;
+  position: fixed;
+  bottom: 16px;
+  left:16px;
+  align-self: center;
+  margin: 0;
+  padding: 16px;
+  height: 48px;
+  width: calc(100vw - 64px);
+  border-radius: 8px;
+  background: #000a;
+  backdrop-filter: blur(24px);
+  z-index: 100;
+}
+
+#PlayButton {
+  display: block;
+  justify-self: center;
+  align-self: baseline;
+  border: 0;
+  background: white;
+  color: #222;
+  font-weight: bolder;
+  height: 100%;
+}
+
+#PlayButton:active {
+  opacity: 0.75;
+}
+
+#PlayButton.Disabled {
+  display: block;
+  justify-self: center;
+  align-self: baseline;
+  border: 1px solid #fff2;
+  background: transparent;
+  color: #fff6;
+  font-weight: bolder;
+  height: 100%;
+}
+
+.TitleBar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: calc(100vw);
+  padding: 8px;
+  background-color: transparent;
+  min-height: 40px !important;
+  -webkit-app-region: drag;
+}
+
+.TitleButtonsMacOS {
+  left: 0;
+}
+
+.TitleButtonsOther {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  width: calc(100% - 48px);
+  display: flex;
+  justify-content: space-between;
+}
+
+.TitleButton {
+  height: 32px;
+  padding: 4px 8px;
+  padding-top: 7px;
+  margin-right: 8px;
+  border-radius: 8px;
+  margin: 0;
+  -webkit-app-region: no-drag;
+}
+
+.TitleButtonGroup {
+  display: inline;
+}
+
+.TitleButtonGroup.Begin .TitleButton {
+  margin-right: 16px;
+}
+
+.TitleButtonGroup.End .TitleButton {
+  margin-left: 16px;
+}
+
+.TitleButton.Icon {
+  padding: 6px, 4px;
+  width: 32px;
+}
+
+.TitleBar .TitleButtonsOther > .TitleButton:hover {
+  background-color: #f137;
+  border-color: #f133;
+  color: white;
+}
+
+.TitleButton.Begin {
+  display: inline;
+  align-self: flex-start;
+}
+
+.TitleButton.End {
+  display: inline;
+  justify-self: end;
+  align-self: flex-end;
+}
+
+.TitleBarText {
+  padding: 16px;
+  margin: 16px;
+  top: 25%;
+  position: relative;
+  display: inline;
+  justify-self: end;
+  text-align: center;
+  text-justify: auto;
+  align-self: center;
+}
+
+* {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  cursor: default;
+}
+
+*::-webkit-scrollbar {
+  display: block;
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+  background: #fff1;
+}
+
+*::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  margin: 4px;
+  max-width: 2px;
+  border-style: solid;
+  border-color: transparent;
+  border-width: 4px;
+  background-clip: content-box !important;
+  background: #fff3;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #fff5;
+}
+
+#SidePanel {
+  position: fixed;
+  top: 64px;
+  left: -532px;
+  width: 250px;
+  height: calc(100vh - 32px - 96px - 64px);
+  background: #000a;
+  border-radius: 8px;
+  transition: left ease-in 600ms;
+  backdrop-filter: blur(24px);
+  padding: 8px;
+  z-index: 100;
+  overflow-y: scroll;
+}
+
+#SidePanel.Opened {
+  left: 16px;
+  transition: left ease-out 600ms;
+}
+
+button.GameEntry {
+  border-radius: 0;
+  background-color: transparent;
+  color: #fffa;
+  border: 1px solid #fff2;
+  width: 100%;
+  box-shadow: none;
+  -moz-outline-radius: 4px;
+  outline: 0 !important;
+}
+
+button.GameEntry:hover {
+  background-color: #fff2;
+}
+
+button.GameEntry:focus {
+  z-index: 500;
+}
+
+button.GameEntry:active {
+  z-index: 500;
+}
+
+button.GameEntry:last-child {
+  border-bottom-right-radius: 8px;
+  border-bottom-left-radius: 8px;
+}
+
+button.GameEntry:first-child {
+  border-top-right-radius: 8px;
+  border-top-left-radius: 8px;
+}
+
+button.GameEntry:not(:last-child) {
+  margin-bottom: -1px;
+  border-bottom: 0;
+}
