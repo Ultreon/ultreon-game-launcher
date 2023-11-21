@@ -17,8 +17,7 @@ fn launch() -> String {
 
 fn main() {
   tauri::Builder::default()
-    .invoke_handler(tauri::generate_handler![close])
-    .invoke_handler(tauri::generate_handler![launch])
+    .invoke_handler(tauri::generate_handler![close, launch])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }
