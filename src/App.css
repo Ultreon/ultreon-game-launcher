@@ -123,6 +123,7 @@ a:hover {
 }
 
 #PlayButton {
+  backdrop-filter: none !important;
   display: block;
   justify-self: center;
   align-self: baseline;
@@ -277,9 +278,10 @@ a:hover {
   transition: left ease-out 600ms;
 }
 
-button.GameEntry {
+button.ProfileEntry {
   border-radius: 0;
   background-color: transparent;
+  backdrop-filter: none;
   color: #fffa;
   border: 1px solid #fff2;
   width: 100%;
@@ -288,29 +290,53 @@ button.GameEntry {
   outline: 0 !important;
 }
 
-button.GameEntry:hover {
+button.ProfileEntry:hover {
   background-color: #fff2;
 }
 
-button.GameEntry:focus {
+button.ProfileEntry:focus {
   z-index: 500;
 }
 
-button.GameEntry:active {
+button.ProfileEntry:active {
   z-index: 500;
 }
 
-button.GameEntry:last-child {
+button.ProfileEntry:last-child {
   border-bottom-right-radius: 8px;
   border-bottom-left-radius: 8px;
 }
 
-button.GameEntry:first-child {
+button.ProfileEntry:first-child {
   border-top-right-radius: 8px;
   border-top-left-radius: 8px;
 }
 
-button.GameEntry:not(:last-child) {
+button.ProfileEntry:not(:last-child) {
   margin-bottom: -1px;
   border-bottom: 0;
+}
+
+.ModalBackground {
+  display: none;
+  z-index: 1000;
+}
+
+.ModalBackground.Open {
+  display: flex;
+  position: fixed;
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+  justify-content: center;
+  align-content: center;
+  justify-items: center;
+  align-items: center;
+}
+
+.Modal {
+  width: 400;
+  height: 300;
+
+  
 }
