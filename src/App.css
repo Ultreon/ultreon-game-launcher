@@ -2,16 +2,14 @@
  * @NOTE: Prepend a `~` to css file paths that are in your node_modules
  *        See https://github.com/webpack-contrib/sass-loader#imports
  */
- body {
+body {
   position: relative;
   color: white;
   height: 100vh;
-  background: linear-gradient(
-    200.96deg,
-    #fedc2a -29.09%,
-    #dd5789 51.77%,
-    #7a2c9e 129.35%
-  );
+  background: linear-gradient(200.96deg,
+      #fedc2a -29.09%,
+      #dd5789 51.77%,
+      #7a2c9e 129.35%);
   /* background-image: url("banner.png");
   background-size: cover; */
   background-color: transparent;
@@ -110,7 +108,7 @@ a:hover {
   align-content: baseline;
   position: fixed;
   bottom: 16px;
-  left:16px;
+  left: 16px;
   align-self: center;
   margin: 0;
   padding: 16px;
@@ -153,6 +151,7 @@ a:hover {
   position: fixed;
   top: 0;
   left: 0;
+  z-index: 1000000;
   width: calc(100vw);
   padding: 8px;
   background-color: transparent;
@@ -200,7 +199,7 @@ a:hover {
   width: 32px;
 }
 
-.TitleBar .TitleButtonsOther > .TitleButton:hover {
+.TitleBar .TitleButtonsOther>.TitleButton:hover {
   background-color: #f137;
   border-color: #f133;
   color: white;
@@ -319,24 +318,65 @@ button.ProfileEntry:not(:last-child) {
 
 .ModalBackground {
   display: none;
-  z-index: 1000;
+  z-index: 100000;
 }
 
-.ModalBackground.Open {
+.ModalBackground.Shown {
   display: flex;
+  opacity: 1;
   position: fixed;
+  top: 0;
+  left: 0;
   width: 100vw;
   height: 100vh;
-  background: #000;
+  background: #0005;
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 16px;
   justify-content: center;
   align-content: center;
   justify-items: center;
   align-items: center;
 }
 
-.Modal {
-  width: 400;
-  height: 300;
+input {
+  border-radius: 8px;
+  background: #fff4;
+  border: 0;
+  padding: 10px;
+  color: white;
+  box-shadow: none;
+  width: calc(100% - 24px);
+  transition: linear 0.2s;
+  margin: 5px;
+  outline: 0 solid #fff4;
+}
 
-  
+input:focus {
+  outline: 5px solid #fff4;
+  border: 0;
+  transition: linear 0.2s;
+}
+
+input:active {
+  outline: 5px solid #fff6;
+  transition: linear 0.2s;
+}
+
+.Modal button {
+  margin: 5px;
+  max-width: fit-content;
+}
+
+.Modal {
+  z-index: 2000;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  min-width: 400px !important;
+  max-width: 400px !important;
+  box-sizing: none;
+  background-color: #fff4;
+  padding: 16px;
+  border-radius: 16px;
 }

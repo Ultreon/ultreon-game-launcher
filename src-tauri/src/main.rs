@@ -6,17 +6,27 @@ extern crate msgbox;
 use msgbox::IconType;
 use msgbox::MsgBoxError;
 use serde::{Deserialize, Serialize};
-use tauri::InvokeError;
-use uuid::Uuid;
+use serde_json::from_reader;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io;
+use std::path;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::exit;
-use std::process::Command;
 use tauri::api::dialog::blocking::FileDialogBuilder;
+use tauri::InvokeError;
+use uuid::Uuid;
 use zip::ZipArchive; // Note the updated import
+
+#[cfg(target_os = "linux")]
+const PATH_SEPARATOR: &str = ":";
+
+#[cfg(target_os = "macos")]
+const PATH_SEPARATOR: &str = ":";
+
+#[cfg(target_os = "windows")]
+const PATH_SEPARATOR: &str = ";";
 
 #[derive(Deserialize, Serialize)]
 pub struct GameMetadata {
@@ -50,25 +60,59 @@ fn close() -> () {
 }
 
 #[tauri::command]
-fn launch() -> () {
-    let command = Command::new("kateFUCK").output();
-    if command.is_err() {
-        let _ = show_error(&command.unwrap_err().to_string());
-        return;
+fn launch(profile: Profile) -> () {
+    let game: String = profile.game;
+    let name: String = profile.name;
+    let version: String = profile.version;
+
+    let version_dir = "games/".to_string() + "/" + &game + "/versions/" + &version + "/";
+
+    fn read_cfg(dir: &String) -> Result<GameConfig, io::Error> {
+        let file = File::open(dir.to_string() + "config.json")?;
+        let cfg = from_reader::<&File, GameConfig>(&file)?;
+        drop(file);
+        return Ok(cfg);
     }
+
+    fn read_meta(dir: &String) -> Result<GameConfig, io::Error> {
+        let file = File::open(dir.to_string() + "metadata.json")?;
+        let cfg = from_reader::<&File, GameConfig>(&file)?;
+        drop(file);
+        return Ok(cfg);
+    }
+
+    let cfg = match read_cfg(&version_dir) {
+        Ok(v) => v,
+        Err(err) => return show_error(&err.to_string()).expect("Failed to show error message"),
+    };
+    let meta = match read_meta(&version_dir) {
+        Ok(v) => v,
+        Err(err) => return show_error(&err.to_string()).expect("Failed to show error message"),
+    };
+
+    cfg.classpath.join(PATH_SEPARATOR);
+    return;
 }
 
 #[tauri::command]
 fn load_profiles(mut profiles: Vec<Profile>) -> () {
-    let profile = Profile { game: "ultracraft".to_string(), name: "Hello world".to_string(), version: "0.1.0".to_string() };
+    let profile = Profile {
+        game: "ultracraft".to_string(),
+        name: "Hello world".to_string(),
+        version: "0.1.0".to_string(),
+    };
     profiles.push(profile);
 }
 
 #[tauri::command(async)]
-fn import() -> Result<Profile, InvokeError> {
+fn import(name: String) -> Result<Profile, InvokeError> {
     let path_buf = FileDialogBuilder::new().pick_file();
     if path_buf.is_none() {
-        return Ok(Profile { game: "error".to_string(), name: "ERROR".to_string(), version: "error".to_string() });
+        return Ok(Profile {
+            game: "error".to_string(),
+            name: "ERROR".to_string(),
+            version: "error".to_string(),
+        });
     };
 
     let path = &path_buf
@@ -84,13 +128,15 @@ fn import() -> Result<Profile, InvokeError> {
         let _ = show_error(&(open.as_ref()).unwrap_err().to_string());
         show_error(&(open.as_ref()).unwrap_err().to_string())
             .expect("Failed to open error message.");
-        return Err(InvokeError::from("IO Error: ".to_string() + &(&(open.as_ref()).unwrap_err().to_string())));
+        return Err(InvokeError::from(
+            "IO Error: ".to_string() + &(&(open.as_ref()).unwrap_err().to_string()),
+        ));
     }
     let file = match File::open(path) {
         Ok(val) => val,
         Err(err) => return Err(InvokeError::from(err.to_string())),
     };
-    let profile = match list_zip_contents(&file) {
+    let profile = match list_zip_contents(&file, &name) {
         Ok(v) => v,
         Err(err) => return Err(err.into()),
     };
@@ -102,7 +148,7 @@ fn show_error(x: &str) -> Result<(), MsgBoxError> {
     return msgbox::create("An error occurred!", &x.to_string(), IconType::Error);
 }
 
-fn list_zip_contents(reader: &File) -> Result<Profile, String> {
+fn list_zip_contents(reader: &File, name: &String) -> Result<Profile, String> {
     let data_dir = match std::env::consts::OS {
         "windows" => {
             // Windows-specific code to get the app data directory
@@ -156,17 +202,38 @@ fn list_zip_contents(reader: &File) -> Result<Profile, String> {
 
     let game_name = config.game.as_str();
 
-    match extract_single_file(&mut zip, &data_dir.join("games/".to_string() + game_name + "/versions/" + version).to_str().unwrap(), &(metadata.version.to_string() + ".jar")) {
+    match extract_single_file(
+        &mut zip,
+        &data_dir
+            .join("games/".to_string() + game_name + "/versions/" + version)
+            .to_str()
+            .unwrap(),
+        &(metadata.version.to_string() + ".jar"),
+    ) {
         Ok(it) => it,
         Err(err) => return Err(err.to_string()),
     };
 
-    match extract_single_file(&mut zip, &data_dir.join("games/".to_string() + game_name + "/versions/" + version).to_str().unwrap(), "config.json") {
+    match extract_single_file(
+        &mut zip,
+        &data_dir
+            .join("games/".to_string() + game_name + "/versions/" + version)
+            .to_str()
+            .unwrap(),
+        "config.json",
+    ) {
         Ok(it) => it,
         Err(err) => return Err(err.to_string()),
     };
 
-    match extract_single_file(&mut zip, &data_dir.join("games/".to_string() + game_name + "/versions/" + version).to_str().unwrap(), "metadata.json") {
+    match extract_single_file(
+        &mut zip,
+        &data_dir
+            .join("games/".to_string() + game_name + "/versions/" + version)
+            .to_str()
+            .unwrap(),
+        "metadata.json",
+    ) {
         Ok(it) => it,
         Err(err) => return Err(err.to_string()),
     };
@@ -175,11 +242,19 @@ fn list_zip_contents(reader: &File) -> Result<Profile, String> {
         return show_error(error.to_string().as_str()).expect("Failed to show error message");
     });
 
-    return Ok(Profile { game: game_name.to_owned(), name: Uuid::new_v4().to_string(), version: version.to_owned() });
+    return Ok(Profile {
+        game: game_name.to_owned(),
+        name: (name).to_string(),
+        version: version.to_owned(),
+    });
 }
 
 // Function to extract a specific file from a zip archive to a specified folder
-fn extract_single_file(archive: &mut ZipArchive<&File>, extract_to: &str, file_to_extract: &str) -> Result<(), io::Error> {
+fn extract_single_file(
+    archive: &mut ZipArchive<&File>,
+    extract_to: &str,
+    file_to_extract: &str,
+) -> Result<(), io::Error> {
     // Get the file at the specified index
     let mut file = archive.by_name(file_to_extract)?;
 
@@ -198,7 +273,6 @@ fn extract_single_file(archive: &mut ZipArchive<&File>, extract_to: &str, file_t
 
     // Copy the contents of the file from the zip archive to the destination file
     io::copy(&mut file, &mut dest_file)?;
-    
 
     Ok(())
 }
@@ -270,7 +344,12 @@ fn read_config(zip: &mut zip::ZipArchive<&File>) -> Result<GameConfig, String> {
 
 fn main() {
     let run = tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![close, launch, import, load_profiles])
+        .invoke_handler(tauri::generate_handler![
+            close,
+            launch,
+            import,
+            load_profiles
+        ])
         .run(tauri::generate_context!());
     if run.is_err() {
         let _ = show_error(&run.unwrap_err().to_string());
