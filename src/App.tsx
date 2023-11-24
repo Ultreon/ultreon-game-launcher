@@ -2,9 +2,13 @@ import { MouseEvent, ReactElement, useEffect, useState } from 'react';
 import './App.css';
 import { invoke } from '@tauri-apps/api'
 import { FaBars, FaX } from 'react-icons/fa6';
-import { PROFILES, Profile } from './Profiles';
+import { PROFILES, Profile, load } from './Profiles';
 
 let selectedProfile: Profile | null = null;
+
+document.oncontextmenu = e => {
+  e.preventDefault()
+}
 
 function MenuButton() {
   function ToggleMenu(): void {
@@ -51,7 +55,7 @@ function TitleButtonsOther() {
       <div className="TitleButtonsOther" data-tauri-drag-region>
         <div className='TitleButtonGroup Begin'>
           <MenuButton />
-          { ImportButton() }
+          {ImportButton()}
         </div>
         <TitleBarText />
         <CloseButton />
@@ -73,7 +77,7 @@ function TitleBarText() {
 function TitleBar() {
   return (
     <div className="TitleBar" data-tauri-drag-region>
-      {TitleButtonsOther() }
+      {TitleButtonsOther()}
     </div>
   );
 }
@@ -116,6 +120,7 @@ function ProfileEntry(element: Profile): ReactElement {
 
   function SelectProfile(event: MouseEvent<HTMLButtonElement, globalThis.MouseEvent>) {
     const elem = event.currentTarget
+    if (PROFILES.length === 0) load();
     const game = PROFILES.find(value => value.name == elem.ariaLabel)
     selectedProfile = game === undefined ? null : game;
 
@@ -135,7 +140,7 @@ function Hello(list: ReactElement<HTMLDivElement>, modal: ReactElement<HTMLDivEl
       <div>
         {list}
       </div>
-      {/* <h1>🚧</h1>
+      <h1>🚧</h1>
       <h1>Ultreon Game Launcher</h1>
       <div className="Hello">
         <a href="https://ultreon.github.io/" target="_blank" rel="noreferrer">
@@ -143,7 +148,7 @@ function Hello(list: ReactElement<HTMLDivElement>, modal: ReactElement<HTMLDivEl
             Website
           </button>
         </a>
-      </div> */}
+      </div>
       <div>
         {modal}
       </div>
@@ -171,6 +176,20 @@ export default function App() {
   const [newItem, setNewItem] = useState<Profile | null>(null);
 
   useEffect(() => {
+    const loadProfiles = async () => {
+      try {
+        if (PROFILES.length === 0) await load();
+
+        setItems(PROFILES);
+      } catch (error) {
+        console.error('Error loading profiles:', error);
+      }
+    };
+
+    loadProfiles();
+  }, []);
+
+  useEffect(() => {
     if (newItem !== null) {
       setItems((prevItems) => {
         return [...prevItems, newItem];
@@ -185,16 +204,25 @@ export default function App() {
     </div>
   )
 
-  async function importProfile(name: string) {    
-    const profile: Profile = await invoke("import", { name: name }) as Profile
-    if (profile.game === 'error') {
-      return;
-    }
-    PROFILES.push(profile);
-    console.log(PROFILES);
+  async function importProfile(name: string) {
+    try {
+      console.log("Attempting to import profile:" + name);
+      const profile: Profile = await invoke("import", { name: name }) as Profile
+      if (profile.game === 'error') {
+        console.log("Importing cancelled");
+        return;
+      }
 
-    setNewItem(profile)
-    hideModal();
+      console.log("Imported profile: %s", profile.name);
+      if (PROFILES.length === 0) await load();
+      PROFILES.push(profile);
+      console.log(PROFILES);
+
+      setNewItem(profile)
+      hideModal();
+    } catch (e) {
+      console.error(e)
+    }
   }
 
   const MODAL = (
@@ -223,7 +251,7 @@ function RevalidatePlayState(selectedProfile: Profile | null) {
   }
 }
 
-function submitProfileInput(importFunc: (name: string) => void): void {
+function submitProfileInput(importFunc: (name: string) => Promise<void>): void {
   const elem = document.getElementById("InputModal") as HTMLDivElement;
   const inputElem = elem.getElementsByClassName("textInput")[0] as HTMLInputElement;
   const value = inputElem.value;
@@ -234,4 +262,3 @@ function submitProfileInput(importFunc: (name: string) => void): void {
   console.log("Import for: %s", value)
   importFunc(value);
 }
-

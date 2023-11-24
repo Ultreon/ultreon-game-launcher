@@ -6,6 +6,17 @@ export class Profile {
   name!: string;
 }
 
-export const PROFILES: Array<Profile> = [];
+// eslint-disable-next-line react-refresh/only-export-components
+export let PROFILES: Array<Profile> = [];
 
-invoke("load_profiles", { profiles: PROFILES })
+export async function load() {
+  try {
+    PROFILES = []
+    PROFILES.push(...(await invoke("load_profiles") as Array<Profile>));
+    console.log(PROFILES)
+  } catch(error) {
+    console.error(error)
+  }
+}
+
+console.log(PROFILES)
