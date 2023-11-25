@@ -7,7 +7,6 @@ use futures_util::StreamExt;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::from_reader;
-use tauri::api::path::data_dir;
 use std::collections::HashMap;
 use std::env::consts::ARCH;
 use std::env::consts::OS;
@@ -151,45 +150,39 @@ pub enum SDKPlatform {
 impl Default for SDKPlatform {
     fn default() -> Self {
         match OS {
-            "windows" => {
-                match ARCH {
-                    "x86" => {
-                        return Self::WinX86;
-                    }
-                    "x86_64" => {
-                        return Self::WinX64;
-                    }
-                    _ => {
-                        panic!("Unsupported platform!");
-                    }
-                }        
-            }
-            "linux" => {
-                match ARCH {
-                    "x86_64" => {
-                        return Self::LinX64;
-                    }
-                    "arm" => {
-                        return Self::LinArm;
-                    }
-                    _ => {
-                        panic!("Unsupported platform!");
-                    }
-                }        
-            }
-            "macos" => {
-                match ARCH {
-                    "x86_64" => {
-                        return Self::MacX64;
-                    }
-                    "arm" => {
-                        return Self::MacArm;
-                    }
-                    _ => {
-                        panic!("Unsupported platform!");
-                    }
-                }        
-            }
+            "windows" => match ARCH {
+                "x86" => {
+                    return Self::WinX86;
+                }
+                "x86_64" => {
+                    return Self::WinX64;
+                }
+                _ => {
+                    panic!("Unsupported platform!");
+                }
+            },
+            "linux" => match ARCH {
+                "x86_64" => {
+                    return Self::LinX64;
+                }
+                "arm" => {
+                    return Self::LinArm;
+                }
+                _ => {
+                    panic!("Unsupported platform!");
+                }
+            },
+            "macos" => match ARCH {
+                "x86_64" => {
+                    return Self::MacX64;
+                }
+                "arm" => {
+                    return Self::MacArm;
+                }
+                _ => {
+                    panic!("Unsupported platform!");
+                }
+            },
             _ => {
                 panic!("Unsupported platform!");
             }
@@ -270,7 +263,11 @@ fn read_meta(dir: &String) -> Result<GameMetadata, io::Error> {
 }
 
 #[tauri::command]
-fn launch(profile: Profile) -> Result<i32, Error> {
+async fn launch(
+    _app: tauri::AppHandle,
+    window: tauri::Window,
+    profile: Profile
+) -> Result<i32, Error> {
     let game: String = profile.game;
     let version: String = profile.version;
 
@@ -283,15 +280,19 @@ fn launch(profile: Profile) -> Result<i32, Error> {
 
     let binding = get_data_dir();
     let data_dir_unstripped = binding.to_str().unwrap();
-    let data_dir = data_dir_unstripped.strip_suffix("/").unwrap_or_else(|| data_dir_unstripped).to_string();
-    
+    let data_dir = data_dir_unstripped
+        .strip_suffix("/")
+        .unwrap_or_else(|| data_dir_unstripped)
+        .to_string();
+
     let mut cp = vec![];
     for entry in cfg.classpath.iter() {
         cp.push(data_dir.to_string() + "/" + entry)
     }
 
     cp.push(
-        data_dir + &"/games/".to_string()
+        data_dir.to_string()
+            + &"/games/".to_string()
             + &cfg.game
             + "/versions/"
             + &meta.version
@@ -302,18 +303,27 @@ fn launch(profile: Profile) -> Result<i32, Error> {
 
     println!("{:?}", cp);
 
+    window.hide().expect("Failed to hide window.");
+
     let cp = cp.join(PATH_SEPARATOR);
     let status = process::Command::new("java")
         .args(["-cp", &cp, &cfg.main_class])
         .stderr(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stdin(Stdio::inherit())
+        .current_dir(data_dir.to_string() + &"/games/".to_string() + &cfg.game)
         .spawn()?
         .wait()?;
 
     let code = status
         .code()
-        .ok_or_else(|| Error::Launch(format!("Game failed to launch!")))?;
+        .unwrap_or(0);
+
+    if status.success() {
+        exit(0);
+    }
+    
+    window.show().expect("Failed to show window again.");
 
     return Ok(code);
 }
@@ -403,28 +413,33 @@ async fn download(
 
     let version_dir = "games/".to_string() + "/" + &game + "/versions/" + &version + "/";
 
-    let cfg = read_cfg(&version_dir)
-        .map_err(|e| format!("Failed to read version config: {:?}", e))?;
-    let _meta = read_meta(&version_dir)
-        .map_err(|e| format!("Failed to read version metadata, {:?}", e))?;
+    let cfg =
+        read_cfg(&version_dir).map_err(|e| format!("Failed to read version config: {:?}", e))?;
+    let _meta =
+        read_meta(&version_dir).map_err(|e| format!("Failed to read version metadata, {:?}", e))?;
 
     let client = Client::builder()
         .build()
         .map_err(|e| format!("Failed to create url client: {:?}", e))?;
 
-    let info: SDKList = fetch_sdk(client.to_owned()).await.map_err(|e| format!("Failed to fetch SDK: {:?}", e))?;
+    let info: SDKList = fetch_sdk(client.to_owned())
+        .await
+        .map_err(|e| format!("Failed to fetch SDK: {:?}", e))?;
 
-    let sdk_info = info.0
+    let sdk_info = info
+        .0
         .get(&cfg.sdk.r#type)
         .ok_or_else(|| format!("Unknown SDK type: {}", &cfg.sdk.r#type))?
         .get(&cfg.sdk.version)
         .ok_or_else(|| format!("Unknown SDK type: {}", &cfg.sdk.r#type))?;
     let platform = &Default::default();
 
-    let url = sdk_info.download.0.get(platform).ok_or_else(|| format!("Can't find SDK for platform {:?}", platform))?;
-    let name = url.rsplit_once("/")
-        .map(|v| v.1)
-        .unwrap_or(url);
+    let url = sdk_info
+        .download
+        .0
+        .get(platform)
+        .ok_or_else(|| format!("Can't find SDK for platform {:?}", platform))?;
+    let name = url.rsplit_once("/").map(|v| v.1).unwrap_or(url);
 
     download_file(app, client, url.to_string(), get_data_dir().join(name))
         .await
@@ -433,7 +448,14 @@ async fn download(
 }
 
 async fn fetch_sdk(client: Client) -> Result<SDKList, Error> {
-    let value: SDKList = serde_json::from_slice(&client.get("https://ultreon.github.io/metadata/sdks.json").send().await?.bytes().await?)?;
+    let value: SDKList = serde_json::from_slice(
+        &client
+            .get("https://ultreon.github.io/metadata/sdks.json")
+            .send()
+            .await?
+            .bytes()
+            .await?,
+    )?;
     return Ok(value);
 }
 

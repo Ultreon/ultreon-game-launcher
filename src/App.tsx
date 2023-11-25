@@ -83,12 +83,15 @@ function TitleBar() {
 }
 
 function PlayButton() {
-  function Launch(event: MouseEvent<HTMLButtonElement>): void {
+  async function Launch(event: MouseEvent<HTMLButtonElement>): void {
     const elem = event.target as HTMLButtonElement;
     if (elem.classList.contains('Disabled')) return;
     const PROF = selectedProfile
     if (PROF == null) return;
-    invoke("launch", { profile: PROF })
+
+    RevalidatePlayState(null);
+    await invoke("launch", { profile: PROF })
+    RevalidatePlayState(PROF);
   }
 
   return (
