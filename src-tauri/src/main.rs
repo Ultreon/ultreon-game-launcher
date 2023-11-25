@@ -3,18 +3,28 @@
 
 extern crate msgbox;
 
+use futures_util::StreamExt;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::from_reader;
+use tauri::api::path::data_dir;
+use std::collections::HashMap;
+use std::env::consts::ARCH;
+use std::env::consts::OS;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io;
+use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process;
 use std::process::exit;
+use std::process::Stdio;
 use std::sync::Mutex;
 use tauri::api::dialog::blocking::FileDialogBuilder;
 use tauri::InvokeError;
+use tauri::Manager;
+use tauri::Runtime;
 use tauri::State;
 use zip::ZipArchive; // Note the updated import
 
@@ -22,13 +32,19 @@ use zip::ZipArchive; // Note the updated import
 #[derive(thiserror::Error, Debug)]
 #[non_exhaustive]
 pub enum Error {
-    /// Failed to serialize/deserialize.
+    /// Generic error.
     #[error("Runtime error: {0}")]
-    Runtime(anyhow::Error),
+    Generic(#[from] anyhow::Error),
+    /// Failed to download a file.
+    #[error("Download error: {0}")]
+    Download(String),
+    /// Failed to launch a game version.
+    #[error("Launch error: {0}")]
+    Launch(String),
     /// Failed to serialize/deserialize.
     #[error("JSON error: {0}")]
     Json(serde_json::Error),
-    /// Failed to serialize/deserialize.
+    /// Unknown API
     #[error("unknown api: {0:?}")]
     UnknownApi(Option<serde_json::Error>),
     /// IO error.
@@ -46,6 +62,9 @@ pub enum Error {
     /// Path not allowed by the scope.
     #[error("path not allowed on the configured scope: {0}")]
     PathNotAllowed(PathBuf),
+    /// Path not allowed by the scope.
+    #[error("reqwest: {0}")]
+    Reqwest(#[from] reqwest::Error),
     /// Program not allowed by the scope.
     #[error("program not allowed on the configured shell scope: {0}")]
     ProgramNotAllowed(PathBuf),
@@ -58,7 +77,7 @@ impl Error {
     }
 
     fn msg(to_string: &str) -> Error {
-        return Error::Runtime(anyhow::Error::msg(to_string.to_string()));
+        return Error::Generic(anyhow::Error::msg(to_string.to_string()));
     }
 }
 
@@ -102,16 +121,102 @@ const PATH_SEPARATOR: &str = ":";
 #[cfg(target_os = "windows")]
 const PATH_SEPARATOR: &str = ";";
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct GameMetadata {
     version: String,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct SDK {
     version: String,
     r#type: String,
 }
+
+#[derive(Debug, Deserialize, Hash, PartialEq)]
+pub enum SDKPlatform {
+    #[serde(alias = "win-x64")]
+    WinX64,
+    #[serde(alias = "win-x86")]
+    WinX86,
+    #[serde(alias = "lin-x64")]
+    LinX64,
+    #[serde(alias = "lin-arm")]
+    LinArm,
+    #[serde(alias = "mac-x64")]
+    MacX64,
+    #[serde(alias = "mac-arm")]
+    MacArm,
+}
+
+impl Default for SDKPlatform {
+    fn default() -> Self {
+        match OS {
+            "windows" => {
+                match ARCH {
+                    "x86" => {
+                        return Self::WinX86;
+                    }
+                    "x86_64" => {
+                        return Self::WinX64;
+                    }
+                    _ => {
+                        panic!("Unsupported platform!");
+                    }
+                }        
+            }
+            "linux" => {
+                match ARCH {
+                    "x86_64" => {
+                        return Self::LinX64;
+                    }
+                    "arm" => {
+                        return Self::LinArm;
+                    }
+                    _ => {
+                        panic!("Unsupported platform!");
+                    }
+                }        
+            }
+            "macos" => {
+                match ARCH {
+                    "x86_64" => {
+                        return Self::MacX64;
+                    }
+                    "arm" => {
+                        return Self::MacArm;
+                    }
+                    _ => {
+                        panic!("Unsupported platform!");
+                    }
+                }        
+            }
+            _ => {
+                panic!("Unsupported platform!");
+            }
+        }
+    }
+}
+
+impl Eq for SDKPlatform {}
+
+#[derive(Deserialize)]
+pub struct SDKDownloadInfo(HashMap<SDKPlatform, String>);
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
+pub struct SDKInfo {
+    download: SDKDownloadInfo,
+    version: String,
+    date: String,
+    executable_path: String,
+    #[serde(default)]
+    inner_path: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct SDKList(HashMap<String, HashMap<String, SDKInfo>>);
 
 #[derive(Deserialize, Serialize)]
 pub struct GameConfig {
@@ -119,6 +224,14 @@ pub struct GameConfig {
     sdk: SDK,
     main_class: String,
     game: String,
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+pub struct DownloadInfo {
+    downloaded: u64,
+    total: u64,
+    downloading: bool,
+    status: String,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -142,43 +255,43 @@ fn close() -> () {
     exit(0);
 }
 
+fn read_cfg(dir: &String) -> Result<GameConfig, io::Error> {
+    let file = File::open(get_data_dir().join(dir.to_string() + "config.json"))?;
+    let cfg = from_reader::<&File, GameConfig>(&file)?;
+    drop(file);
+    return Ok(cfg);
+}
+
+fn read_meta(dir: &String) -> Result<GameMetadata, io::Error> {
+    let file = File::open(get_data_dir().join(dir.to_string() + "metadata.json"))?;
+    let meta = from_reader::<&File, GameMetadata>(&file)?;
+    drop(file);
+    return Ok(meta);
+}
+
 #[tauri::command]
-fn launch(profile: Profile) -> () {
+fn launch(profile: Profile) -> Result<i32, Error> {
     let game: String = profile.game;
     let version: String = profile.version;
 
     let version_dir = "games/".to_string() + "/" + &game + "/versions/" + &version + "/";
 
-    fn read_cfg(dir: &String) -> Result<GameConfig, io::Error> {
-        let file = File::open(dir.to_string() + "config.json")?;
-        let cfg = from_reader::<&File, GameConfig>(&file)?;
-        drop(file);
-        return Ok(cfg);
-    }
+    let cfg = read_cfg(&version_dir)
+        .map_err(|e| Error::Launch(format!("Failed to read version config: {:?}", e)))?;
+    let meta = read_meta(&version_dir)
+        .map_err(|e| Error::Launch(format!("Failed to read version metadata, {:?}", e)))?;
 
-    fn read_meta(dir: &String) -> Result<GameMetadata, io::Error> {
-        let file = File::open(dir.to_string() + "metadata.json")?;
-        let meta = from_reader::<&File, GameMetadata>(&file)?;
-        drop(file);
-        return Ok(meta);
-    }
-
-    let cfg = match read_cfg(&version_dir) {
-        Ok(v) => v,
-        Err(err) => return show_error(&err.to_string()),
-    };
-    let meta = match read_meta(&version_dir) {
-        Ok(v) => v,
-        Err(err) => return show_error(&err.to_string()),
-    };
-
+    let binding = get_data_dir();
+    let data_dir_unstripped = binding.to_str().unwrap();
+    let data_dir = data_dir_unstripped.strip_suffix("/").unwrap_or_else(|| data_dir_unstripped).to_string();
+    
     let mut cp = vec![];
     for entry in cfg.classpath.iter() {
-        cp.push(entry.to_owned())
+        cp.push(data_dir.to_string() + "/" + entry)
     }
 
     cp.push(
-        "games/".to_string()
+        data_dir + &"/games/".to_string()
             + &cfg.game
             + "/versions/"
             + &meta.version
@@ -187,10 +300,22 @@ fn launch(profile: Profile) -> () {
             + ".jar",
     );
 
-    let cp = cp.join(PATH_SEPARATOR) + PATH_SEPARATOR + &meta.version;
-    process::Command::new("java").args(["-cp", &cp, &cfg.main_class]);
+    println!("{:?}", cp);
 
-    return;
+    let cp = cp.join(PATH_SEPARATOR);
+    let status = process::Command::new("java")
+        .args(["-cp", &cp, &cfg.main_class])
+        .stderr(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stdin(Stdio::inherit())
+        .spawn()?
+        .wait()?;
+
+    let code = status
+        .code()
+        .ok_or_else(|| Error::Launch(format!("Game failed to launch!")))?;
+
+    return Ok(code);
 }
 
 #[tauri::command(async)]
@@ -265,6 +390,97 @@ fn import(profile_state: State<'_, Profiles>, name: String) -> Result<Profile, E
     serde_json::to_writer(open, &profiles)?;
 
     return Ok(profile);
+}
+
+#[tauri::command]
+async fn download(
+    app: tauri::AppHandle,
+    _window: tauri::Window,
+    profile: Profile,
+) -> Result<(), String> {
+    let game: String = profile.game;
+    let version: String = profile.version;
+
+    let version_dir = "games/".to_string() + "/" + &game + "/versions/" + &version + "/";
+
+    let cfg = read_cfg(&version_dir)
+        .map_err(|e| format!("Failed to read version config: {:?}", e))?;
+    let _meta = read_meta(&version_dir)
+        .map_err(|e| format!("Failed to read version metadata, {:?}", e))?;
+
+    let client = Client::builder()
+        .build()
+        .map_err(|e| format!("Failed to create url client: {:?}", e))?;
+
+    let info: SDKList = fetch_sdk(client.to_owned()).await.map_err(|e| format!("Failed to fetch SDK: {:?}", e))?;
+
+    let sdk_info = info.0
+        .get(&cfg.sdk.r#type)
+        .ok_or_else(|| format!("Unknown SDK type: {}", &cfg.sdk.r#type))?
+        .get(&cfg.sdk.version)
+        .ok_or_else(|| format!("Unknown SDK type: {}", &cfg.sdk.r#type))?;
+    let platform = &Default::default();
+
+    let url = sdk_info.download.0.get(platform).ok_or_else(|| format!("Can't find SDK for platform {:?}", platform))?;
+    let name = url.rsplit_once("/")
+        .map(|v| v.1)
+        .unwrap_or(url);
+
+    download_file(app, client, url.to_string(), get_data_dir().join(name))
+        .await
+        .map_err(|e| format!("Failed to download SDK: {:?}", e))?;
+    return Ok(());
+}
+
+async fn fetch_sdk(client: Client) -> Result<SDKList, Error> {
+    let value: SDKList = serde_json::from_slice(&client.get("https://ultreon.github.io/metadata/sdks.json").send().await?.bytes().await?)?;
+    return Ok(value);
+}
+
+async fn download_file<R: Runtime>(
+    app: tauri::AppHandle<R>,
+    client: Client,
+    url: String,
+    file_path: PathBuf,
+) -> Result<(), Error> {
+    let response = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| Error::Download(format!("Failed to make request: {:?}", e)))?;
+
+    let total_size = response.content_length().unwrap_or(0);
+    let mut downloaded_size = 0;
+
+    let mut file = File::create(&file_path)?;
+    let file_name = Path::new(&file_path)
+        .file_name()
+        .ok_or_else(|| Error::Download(format!("Failed to get file path")))?
+        .to_str()
+        .unwrap()
+        .to_owned();
+
+    let mut response = response.bytes_stream();
+    while let Some(chunk) = response.next().await {
+        let chunk = chunk.map_err(|e| Error::Download(format!("Failed to read chunk: {:?}", e)))?;
+        downloaded_size += chunk.len() as u64;
+        file.write_all(&chunk)
+            .map_err(|e| Error::Download(format!("Failed to write to file: {:?}", e)))?;
+
+        // Emit event
+        app.emit_all(
+            "downloadProgress",
+            DownloadInfo {
+                downloaded: downloaded_size,
+                total: total_size,
+                downloading: true,
+                status: format!("Downloading: {}", file_name),
+            },
+        )
+        .map_err(|e| Error::Download(format!("Failed to emit event: {:?}", e)))?;
+    }
+
+    return Ok(());
 }
 
 fn show_error(x: &str) -> () {
@@ -453,7 +669,8 @@ fn main() {
             close,
             launch,
             import,
-            load_profiles
+            load_profiles,
+            download
         ])
         .run(tauri::generate_context!());
     if run.is_err() {
