@@ -3,10 +3,12 @@
 
 extern crate msgbox;
 
+use flate2::read::GzDecoder;
 use futures_util::StreamExt;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::from_reader;
+use tauri::api::file;
 use std::collections::HashMap;
 use std::env::consts::ARCH;
 use std::env::consts::OS;
@@ -17,8 +19,8 @@ use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process;
-use std::process::exit;
 use std::process::Stdio;
+use std::process::exit;
 use std::sync::Mutex;
 use tauri::api::dialog::blocking::FileDialogBuilder;
 use tauri::InvokeError;
@@ -40,6 +42,9 @@ pub enum Error {
     /// Failed to launch a game version.
     #[error("Launch error: {0}")]
     Launch(String),
+    /// Failed to launch a game version.
+    #[error("Fetch error: {0}")]
+    Fetch(String),
     /// Failed to serialize/deserialize.
     #[error("JSON error: {0}")]
     Json(serde_json::Error),
@@ -204,7 +209,7 @@ pub struct SDKInfo {
     date: String,
     executable_path: String,
     #[serde(default)]
-    inner_path: String,
+    inner_path: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -223,16 +228,18 @@ pub struct GameConfig {
 pub struct DownloadInfo {
     downloaded: u64,
     total: u64,
+    percent: u32,
     downloading: bool,
     status: String,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct Profile {
     game: String,
     name: String,
     version: String,
 }
+
 impl Profile {
     fn clone(&self) -> Profile {
         Profile {
@@ -264,10 +271,33 @@ fn read_meta(dir: &String) -> Result<GameMetadata, io::Error> {
 
 #[tauri::command]
 async fn launch(
-    _app: tauri::AppHandle,
+    app: tauri::AppHandle,
     window: tauri::Window,
-    profile: Profile
+    profile: Profile,
 ) -> Result<i32, Error> {
+    let client = Client::builder()
+        .build()
+        .map_err(|e| Error::Launch(format!("Failed to create url client: {:?}", e)))?;
+
+    let sdk_list: SDKList = fetch_sdk(client.to_owned())
+        .await
+        .map_err(|e| Error::Fetch(format!("Failed to fetch SDK: {:?}", e)))?;
+
+    
+    let version_dir = "games/".to_string() + "/" + &profile.game + "/versions/" + &profile.version + "/";
+    let cfg = read_cfg(&version_dir)
+        .map_err(|e| Error::Launch(format!("Failed to read version config: {:?}", e)))?;
+    let _meta = read_meta(&version_dir)
+        .map_err(|e| Error::Launch(format!("Failed to read version metadata, {:?}", e)))?;
+    let sdk_info = sdk_list
+        .0.get(&cfg.sdk.r#type)
+        .ok_or_else(|| Error::Launch(format!("Unknown SDK type: {}", &cfg.sdk.r#type)))?
+        .get(&cfg.sdk.version)
+        .ok_or_else(|| Error::Launch(format!("Unknown SDK type: {}", &cfg.sdk.r#type)))?;
+    get_sdk(app, profile.clone(), client, sdk_info, &cfg, &_meta)
+        .await
+        .map_err(|e| Error::Launch(e))?;
+
     let game: String = profile.game;
     let version: String = profile.version;
 
@@ -280,7 +310,7 @@ async fn launch(
 
     let binding = get_data_dir();
     let data_dir_unstripped = binding.to_str().unwrap();
-    let data_dir = data_dir_unstripped
+    let data_dir = &data_dir_unstripped
         .strip_suffix("/")
         .unwrap_or_else(|| data_dir_unstripped)
         .to_string();
@@ -303,15 +333,26 @@ async fn launch(
 
     println!("{:?}", cp);
 
-    window.hide().expect("Failed to hide window.");
+    // window.hide().expect("Failed to hide window.");
+
+    let mut sdk_path = PathBuf::from(data_dir).join(format!("sdks/{}/{}/", cfg.sdk.r#type, cfg.sdk.version));
+    if sdk_info.inner_path.is_some() {
+        let inner_path = sdk_info.inner_path.as_ref().unwrap();
+        sdk_path = sdk_path.join(inner_path);
+    }
+
+    let exec_path = &sdk_info.executable_path;
+    sdk_path = sdk_path.join("bin/java");
+
+    println!("Running SDK: {}", sdk_path.to_string_lossy());
 
     let cp = cp.join(PATH_SEPARATOR);
-    let status = process::Command::new("java")
+    let status = process::Command::new(sdk_path)
         .args(["-cp", &cp, &cfg.main_class])
         .stderr(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stdin(Stdio::inherit())
-        .current_dir(data_dir.to_string() + &"/games/".to_string() + &cfg.game)
+        .current_dir((&data_dir).to_string() + &"/games/".to_string() + &cfg.game)
         .spawn()?
         .wait()?;
 
@@ -322,10 +363,10 @@ async fn launch(
     if status.success() {
         exit(0);
     }
-    
-    window.show().expect("Failed to show window again.");
 
-    return Ok(code);
+    // window.show().expect("Failed to show window again.");
+
+    return Ok(0);
 }
 
 #[tauri::command(async)]
@@ -402,36 +443,16 @@ fn import(profile_state: State<'_, Profiles>, name: String) -> Result<Profile, E
     return Ok(profile);
 }
 
-#[tauri::command]
-async fn download(
-    app: tauri::AppHandle,
-    _window: tauri::Window,
+async fn get_sdk(
+    app_: tauri::AppHandle,
     profile: Profile,
-) -> Result<(), String> {
-    let game: String = profile.game;
-    let version: String = profile.version;
+    client: Client,
+    sdk_info: &SDKInfo,
+    cfg: &GameConfig,
+    _meta: &GameMetadata
+) -> Result<bool, String> {
+    let app = app_;
 
-    let version_dir = "games/".to_string() + "/" + &game + "/versions/" + &version + "/";
-
-    let cfg =
-        read_cfg(&version_dir).map_err(|e| format!("Failed to read version config: {:?}", e))?;
-    let _meta =
-        read_meta(&version_dir).map_err(|e| format!("Failed to read version metadata, {:?}", e))?;
-
-    let client = Client::builder()
-        .build()
-        .map_err(|e| format!("Failed to create url client: {:?}", e))?;
-
-    let info: SDKList = fetch_sdk(client.to_owned())
-        .await
-        .map_err(|e| format!("Failed to fetch SDK: {:?}", e))?;
-
-    let sdk_info = info
-        .0
-        .get(&cfg.sdk.r#type)
-        .ok_or_else(|| format!("Unknown SDK type: {}", &cfg.sdk.r#type))?
-        .get(&cfg.sdk.version)
-        .ok_or_else(|| format!("Unknown SDK type: {}", &cfg.sdk.r#type))?;
     let platform = &Default::default();
 
     let url = sdk_info
@@ -441,10 +462,112 @@ async fn download(
         .ok_or_else(|| format!("Can't find SDK for platform {:?}", platform))?;
     let name = url.rsplit_once("/").map(|v| v.1).unwrap_or(url);
 
-    download_file(app, client, url.to_string(), get_data_dir().join(name))
-        .await
-        .map_err(|e| format!("Failed to download SDK: {:?}", e))?;
-    return Ok(());
+    let data_dir = &get_data_dir();
+
+    let file_path = data_dir.join(format!("temp/{}", name));
+
+    std::fs::create_dir_all(data_dir.join("temp"))
+        .map_err(|e| format!("Failed to create output directory: {:?}", e))?;
+
+    download_file(
+        app.to_owned(),
+        client,
+        url.to_string(),
+        file_path.to_owned(),
+    )
+    .await
+    .map_err(|e| format!("Failed to download SDK: {:?}", e))?;
+
+    // Replace "your_archive.tar.gz" with the actual path to your tar.gz file
+    let file = File::open(file_path).map_err(|e| format!("Failed to open SDK package: {:?}", e))?;
+    let decompressed = GzDecoder::new(file);
+    let mut archive = tar::Archive::new(decompressed);
+
+    // Emit event
+    app.emit_all(
+        "downloadProgress",
+        DownloadInfo {
+            downloaded: 0,
+            total: 0,
+            downloading: true,
+            status: format!("Extracting: {}", name),
+            percent: 100,
+        },
+    )
+    .map_err(|e| format!("Failed to emit extract event: {:?}", e))?;
+
+    let output_dir = data_dir
+        .join("sdks/".to_string() + &cfg.sdk.r#type + &"/" + &cfg.sdk.version)
+        .to_str()
+        .unwrap()
+        .to_string();
+
+    std::fs::create_dir_all(&output_dir)
+        .map_err(|e| format!("Failed to create output directory: {:?}", e))?;
+
+    let entries = &mut archive
+        .entries()
+        .map_err(|e| format!("Failed to list SDK package entries: {:?}", e))?;
+    let mut extracted = 0;
+    let mut buf: Vec<u8> = vec![];
+
+    for entry in entries {
+        let out_dir = output_dir.clone();
+        let mut entry = entry.map_err(|e| format!("Failed to get entry: {:?}", e))?;
+        let path = entry
+            .path()
+            .map_err(|e| format!("Failed to get entry: {:?}", e))?;
+
+        println!("Extracting: {}/{}", name, path.to_string_lossy());
+
+        // Emit event
+        app.emit_all(
+            "downloadProgress",
+            DownloadInfo {
+                downloaded: extracted,
+                total: extracted,
+                downloading: true,
+                status: format!("Extracting: {:?}", path),
+                percent: (100) as u32,
+            },
+        )
+        .map_err(|e| format!("Failed to emit extract event: {:?}", e))?;
+
+        let target_path = format!("{}/{}", out_dir.to_string(), path.to_string_lossy());
+
+        // Create parent directories if they don't exist
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(format!("{}/{:?}", out_dir, parent))
+                .map_err(|e| format!("Failed to output directories: {:?}", e))?;
+        }
+
+        // If the entry is a directory, create it
+        if entry.header().entry_type().is_dir() {
+            std::fs::create_dir_all(&target_path)
+                .map_err(|e| format!("Failed to create directory: {:?}", e))?;
+        } else {
+            entry
+                .unpack_in(out_dir)
+                .map_err(|e| format!("Failed to unpack file: {:?}", e))?;
+            buf.clear();
+        }
+        extracted += 1;
+    }
+
+    // Emit event
+    app.emit_all(
+        "downloadProgress",
+        DownloadInfo {
+            downloaded: 1,
+            total: 1,
+            downloading: false,
+            status: format!("Completed!"),
+            percent: 100,
+        },
+    )
+    .map_err(|e| format!("Failed to emit extract event: {:?}", e))?;
+
+    return Ok(true);
 }
 
 async fn fetch_sdk(client: Client) -> Result<SDKList, Error> {
@@ -496,6 +619,7 @@ async fn download_file<R: Runtime>(
                 downloaded: downloaded_size,
                 total: total_size,
                 downloading: true,
+                percent: (100 * downloaded_size / total_size) as u32,
                 status: format!("Downloading: {}", file_name),
             },
         )
@@ -691,8 +815,7 @@ fn main() {
             close,
             launch,
             import,
-            load_profiles,
-            download
+            load_profiles
         ])
         .run(tauri::generate_context!());
     if run.is_err() {

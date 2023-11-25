@@ -380,3 +380,36 @@ input:active {
   padding: 16px;
   border-radius: 16px;
 }
+
+.ProgressBar {
+  height: 40px;
+  border-radius: 8px;
+  width: calc(100vw - 32px);
+  position: fixed;
+  opacity: 0;
+  left: 16px;
+  bottom: 56px;
+  display: block;
+  background: #fff4;
+  backdrop-filter: blur(24px);
+  transition: ease-in-out 0.4s;
+}
+
+.ProgressBar.Shown {
+  opacity: 1;
+  bottom: 86px;
+}
+
+.ProgressBarInner {
+  height: 100%;
+  border-radius: 8px;
+  width: 0;
+  display: block;
+  background: #fff4;
+  transition: width ease-in-out 0.75s;
+}
+.ProgressStatus {
+  position: relative;
+  bottom: 35px;
+  color: black;
+}

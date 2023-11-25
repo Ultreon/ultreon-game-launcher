@@ -1,6 +1,7 @@
 import { MouseEvent, ReactElement, useEffect, useState } from 'react';
 import './App.css';
 import { invoke } from '@tauri-apps/api'
+import { listen } from '@tauri-apps/api/event'
 import { FaBars, FaX } from 'react-icons/fa6';
 import { PROFILES, Profile, load } from './Profiles';
 
@@ -9,6 +10,13 @@ let selectedProfile: Profile | null = null;
 document.oncontextmenu = e => {
   e.preventDefault()
 }
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+let onprogress = (_payload: DownloadInfo) => {};
+
+listen('downloadProgress', (progress) => {
+  onprogress(progress.payload as DownloadInfo)
+});
 
 function MenuButton() {
   function ToggleMenu(): void {
@@ -83,14 +91,18 @@ function TitleBar() {
 }
 
 function PlayButton() {
-  async function Launch(event: MouseEvent<HTMLButtonElement>): void {
+  async function Launch(event: MouseEvent<HTMLButtonElement>): Promise<void> {
     const elem = event.target as HTMLButtonElement;
     if (elem.classList.contains('Disabled')) return;
     const PROF = selectedProfile
     if (PROF == null) return;
 
     RevalidatePlayState(null);
-    await invoke("launch", { profile: PROF })
+    try {
+      await invoke("launch", { profile: PROF })
+    } catch (e) {
+      console.log("Launch failed:", e);
+    }
     RevalidatePlayState(PROF);
   }
 
@@ -137,7 +149,7 @@ function ProfileEntry(element: Profile): ReactElement {
   );
 }
 
-function Hello(list: ReactElement<HTMLDivElement>, modal: ReactElement<HTMLDivElement>) {
+function Hello(list: ReactElement<HTMLDivElement>, modal: ReactElement<HTMLDivElement>, progress: ReactElement<HTMLDivElement>) {
   return (
     <div>
       <div>
@@ -155,6 +167,7 @@ function Hello(list: ReactElement<HTMLDivElement>, modal: ReactElement<HTMLDivEl
       <div>
         {modal}
       </div>
+      {progress}
       {BottomPanel()}
     </div>
   );
@@ -174,9 +187,22 @@ function hideModal() {
   inputElem.value = "";
 }
 
+class DownloadInfo {
+  downloaded: number = 0;
+  total: number = 0;
+  percent: number = 0;
+  downloading: boolean = false;
+  status: string = "";
+
+  constructor() {
+
+  }
+}
+
 export default function App() {
   const [items, setItems] = useState<Profile[]>(PROFILES);
   const [newItem, setNewItem] = useState<Profile | null>(null);
+  const [progress, setProgress] = useState<DownloadInfo>(new DownloadInfo());
 
   useEffect(() => {
     const loadProfiles = async () => {
@@ -240,8 +266,35 @@ export default function App() {
     </div>
   )
 
+  useEffect(() => {
+    
+  }, []);
+
+  useEffect(() => {
+    onprogress = (payload: DownloadInfo) => {
+      setProgress(payload);
+    };
+    // window.setDLProgress = function (downloaded: number, total: number, downloading: boolean, status: string = "") {
+    //   const info = new DownloadInfo();
+    //   info.downloaded = downloaded;
+    //   info.total = total;
+    //   info.downloading = downloading;
+    //   info.status = status;
+    //   setProgress(info)
+    // }
+  }, []);
+
+  const PROGRESS = (
+    <div className={progress.downloading ? 'ProgressBar Shown' : 'ProgressBar'}>
+      <div id="MainProgressBar" className='ProgressBarInner' style={{width: (progress.percent) + "%"}} />
+      <div id="MainProgressStatus" className='ProgressStatus'>
+        {progress.status}
+      </div>
+    </div>
+  )
+
   return (
-    <>{TitleBar()}{Hello(LIST, MODAL)}</>
+    <>{TitleBar()}{Hello(LIST, MODAL, PROGRESS)}</>
   );
 }
 function RevalidatePlayState(selectedProfile: Profile | null) {

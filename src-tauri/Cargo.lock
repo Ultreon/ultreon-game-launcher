@@ -883,12 +883,14 @@ name = "game-launcher"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "flate2",
  "futures-util",
  "indicatif",
  "msgbox",
  "reqwest",
  "serde",
  "serde_json",
+ "tar",
  "tauri",
  "tauri-build",
  "thiserror",
