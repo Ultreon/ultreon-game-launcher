@@ -155,7 +155,6 @@ function Hello(list: ReactElement<HTMLDivElement>, modal: ReactElement<HTMLDivEl
       <div>
         {list}
       </div>
-      <h1>🚧</h1>
       <h1>Ultreon Game Launcher</h1>
       <div className="Hello">
         <a href="https://ultreon.github.io/" target="_blank" rel="noreferrer">

@@ -8,7 +8,6 @@ use futures_util::StreamExt;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::from_reader;
-use tauri::api::file;
 use std::collections::HashMap;
 use std::env::consts::ARCH;
 use std::env::consts::OS;
@@ -217,6 +216,7 @@ pub struct SDKInfo {
 pub struct SDKList(HashMap<String, HashMap<String, SDKInfo>>);
 
 #[derive(Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct GameConfig {
     classpath: Vec<String>,
     sdk: SDK,
@@ -294,7 +294,7 @@ async fn launch(
         .ok_or_else(|| Error::Launch(format!("Unknown SDK type: {}", &cfg.sdk.r#type)))?
         .get(&cfg.sdk.version)
         .ok_or_else(|| Error::Launch(format!("Unknown SDK type: {}", &cfg.sdk.r#type)))?;
-    get_sdk(app, profile.clone(), client, sdk_info, &cfg, &_meta)
+    get_sdk(app, client, sdk_info, &cfg, &_meta)
         .await
         .map_err(|e| Error::Launch(e))?;
 
@@ -333,7 +333,7 @@ async fn launch(
 
     println!("{:?}", cp);
 
-    // window.hide().expect("Failed to hide window.");
+    window.hide().expect("Failed to hide window.");
 
     let mut sdk_path = PathBuf::from(data_dir).join(format!("sdks/{}/{}/", cfg.sdk.r#type, cfg.sdk.version));
     if sdk_info.inner_path.is_some() {
@@ -341,7 +341,6 @@ async fn launch(
         sdk_path = sdk_path.join(inner_path);
     }
 
-    let exec_path = &sdk_info.executable_path;
     sdk_path = sdk_path.join("bin/java");
 
     println!("Running SDK: {}", sdk_path.to_string_lossy());
@@ -364,9 +363,9 @@ async fn launch(
         exit(0);
     }
 
-    // window.show().expect("Failed to show window again.");
+    window.show().expect("Failed to show window again.");
 
-    return Ok(0);
+    return Ok(code);
 }
 
 #[tauri::command(async)]
@@ -445,7 +444,6 @@ fn import(profile_state: State<'_, Profiles>, name: String) -> Result<Profile, E
 
 async fn get_sdk(
     app_: tauri::AppHandle,
-    profile: Profile,
     client: Client,
     sdk_info: &SDKInfo,
     cfg: &GameConfig,
@@ -463,6 +461,16 @@ async fn get_sdk(
     let name = url.rsplit_once("/").map(|v| v.1).unwrap_or(url);
 
     let data_dir = &get_data_dir();
+
+    let output_dir = data_dir
+        .join("sdks/".to_string() + &cfg.sdk.r#type + &"/" + &cfg.sdk.version)
+        .to_str()
+        .unwrap()
+        .to_string();
+
+    if Path::new(&output_dir).exists() {
+        return Ok(false);
+    }
 
     let file_path = data_dir.join(format!("temp/{}", name));
 
@@ -495,12 +503,6 @@ async fn get_sdk(
         },
     )
     .map_err(|e| format!("Failed to emit extract event: {:?}", e))?;
-
-    let output_dir = data_dir
-        .join("sdks/".to_string() + &cfg.sdk.r#type + &"/" + &cfg.sdk.version)
-        .to_str()
-        .unwrap()
-        .to_string();
 
     std::fs::create_dir_all(&output_dir)
         .map_err(|e| format!("Failed to create output directory: {:?}", e))?;
