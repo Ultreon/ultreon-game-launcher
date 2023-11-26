@@ -3,13 +3,16 @@
 
 extern crate msgbox;
 
-use tauri::{AppHandle, generate_handler, State, Window};
-use profiles::Profiles;
-use tauri::api::dialog::blocking::FileDialogBuilder;
 use std::fs::{File, OpenOptions};
 use std::path::Path;
 use std::process::exit;
+
 use serde_json::from_reader;
+use tauri::{AppHandle, generate_handler, State, Window};
+use tauri::api::dialog::blocking::FileDialogBuilder;
+
+use profiles::Profiles;
+
 use crate::profiles::Profile;
 use crate::sdk::{SDKInfo, SDKList};
 use crate::util::Error;

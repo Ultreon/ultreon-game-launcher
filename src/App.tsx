@@ -1,9 +1,12 @@
-import { MouseEvent, ReactElement, useEffect, useState } from 'react';
+import {MouseEvent, ReactElement, useEffect, useState} from 'react';
 import './App.css';
-import { invoke } from '@tauri-apps/api'
-import { listen } from '@tauri-apps/api/event'
-import { FaBars, FaX } from 'react-icons/fa6';
-import { PROFILES, Profile, load } from './Profiles';
+import {invoke} from '@tauri-apps/api'
+import {listen} from '@tauri-apps/api/event'
+import {FaBars, FaX} from 'react-icons/fa6';
+import {load, Profile, PROFILES} from './Profiles';
+import {toast} from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import ToastComponent from "./CustomToast.tsx";
 
 let selectedProfile: Profile | null = null;
 
@@ -12,7 +15,8 @@ document.oncontextmenu = e => {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-let onprogress = (_payload: DownloadInfo) => {};
+let onprogress = (_payload: DownloadInfo) => {
+};
 
 listen('downloadProgress', (progress) => {
   onprogress(progress.payload as DownloadInfo)
@@ -32,7 +36,7 @@ function MenuButton() {
 
   return (
     <button className="TitleButton Icon Begin" onClick={() => ToggleMenu()} type="button">
-      <FaBars />
+      <FaBars/>
     </button>
   );
 }
@@ -44,7 +48,7 @@ function CloseButton() {
 
   return (
     <button className="TitleButton Icon End" onClick={Close} type="button">
-      <FaX />
+      <FaX/>
     </button>
   );
 }
@@ -62,11 +66,11 @@ function TitleButtonsOther() {
     <div>
       <div className="TitleButtonsOther" data-tauri-drag-region>
         <div className='TitleButtonGroup Begin'>
-          <MenuButton />
+          <MenuButton/>
           {ImportButton()}
         </div>
-        <TitleBarText />
-        <CloseButton />
+        <TitleBarText/>
+        <CloseButton/>
       </div>
     </div>
   );
@@ -99,8 +103,20 @@ function PlayButton() {
 
     RevalidatePlayState(null);
     try {
-      await invoke("launch", { profile: PROF })
+      await invoke("launch", {profile: PROF})
     } catch (e) {
+      if (typeof(e) === "string") {
+        toast.error((
+          // @ts-ignore
+          <>
+            <b>Failed to launch!</b><br/>{e.toString()}
+          </>
+        ), {
+          position: toast.POSITION.TOP_RIGHT,
+          closeOnClick: true,
+          theme: "dark"
+        });
+      }
       console.log("Launch failed:", e);
     }
     RevalidatePlayState(PROF);
@@ -124,14 +140,14 @@ function BottomPanel() {
   return (
     <div>
       <div className="BottomPanel">
-        <PlayButton />
+        <PlayButton/>
       </div>
     </div>
   );
 }
 
 function ProfileEntry(element: Profile): ReactElement {
-  const { name } = element;
+  const {name} = element;
 
   function SelectProfile(event: MouseEvent<HTMLButtonElement, globalThis.MouseEvent>) {
     const elem = event.currentTarget
@@ -149,7 +165,7 @@ function ProfileEntry(element: Profile): ReactElement {
   );
 }
 
-function Hello(list: ReactElement<HTMLDivElement>, modal: ReactElement<HTMLDivElement>, progress: ReactElement<HTMLDivElement>) {
+function Content(list: ReactElement<HTMLDivElement>, modal: ReactElement<HTMLDivElement>, progress: ReactElement<HTMLDivElement>) {
   return (
     <div>
       <div>
@@ -168,6 +184,7 @@ function Hello(list: ReactElement<HTMLDivElement>, modal: ReactElement<HTMLDivEl
       </div>
       {progress}
       {BottomPanel()}
+      <ToastComponent/>
     </div>
   );
 }
@@ -214,7 +231,8 @@ export default function App() {
       }
     };
 
-    loadProfiles().then(() => {});
+    loadProfiles().then(() => {
+    });
   }, []);
 
   useEffect(() => {
@@ -235,7 +253,7 @@ export default function App() {
   async function importProfile(name: string) {
     try {
       console.log("Attempting to import profile:" + name);
-      const profile: Profile = await invoke("import", { name: name }) as Profile
+      const profile: Profile = await invoke("import", {name: name}) as Profile
       if (profile.game === 'error') {
         console.log("Importing cancelled");
         return;
@@ -256,7 +274,7 @@ export default function App() {
   const MODAL = (
     <div id="InputModalBG" className='ModalBackground'>
       <div id="InputModal" className='Modal'>
-        <input type='text' className='textInput' />
+        <input type='text' className='textInput'/>
         <div className='ButtonGroup'>
           <button type='button' onClick={() => hideModal()}>Cancel</button>
           <button type='button' onClick={() => submitProfileInput(importProfile)}>Import</button>
@@ -266,26 +284,14 @@ export default function App() {
   )
 
   useEffect(() => {
-    
-  }, []);
-
-  useEffect(() => {
     onprogress = (payload: DownloadInfo) => {
       setProgress(payload);
     };
-    // window.setDLProgress = function (downloaded: number, total: number, downloading: boolean, status: string = "") {
-    //   const info = new DownloadInfo();
-    //   info.downloaded = downloaded;
-    //   info.total = total;
-    //   info.downloading = downloading;
-    //   info.status = status;
-    //   setProgress(info)
-    // }
   }, []);
 
   const PROGRESS = (
     <div className={progress.downloading ? 'ProgressBar Shown' : 'ProgressBar'}>
-      <div id="MainProgressBar" className='ProgressBarInner' style={{width: (progress.percent) + "%"}} />
+      <div id="MainProgressBar" className='ProgressBarInner' style={{width: (progress.percent) + "%"}}/>
       <div id="MainProgressStatus" className='ProgressStatus'>
         {progress.status}
       </div>
@@ -293,9 +299,13 @@ export default function App() {
   )
 
   return (
-    <>{TitleBar()}{Hello(LIST, MODAL, PROGRESS)}</>
+    <>
+      {TitleBar()}
+      {Content(LIST, MODAL, PROGRESS)}
+    </>
   );
 }
+
 function RevalidatePlayState(selectedProfile: Profile | null) {
   const elem = document.getElementById("PlayButton");
   if (selectedProfile == null) {

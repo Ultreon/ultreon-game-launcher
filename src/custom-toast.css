@@ -1,0 +1,44 @@
+/* Example styles for the notification container */
+.Toastify__toast-container {
+    width: 320px;
+}
+
+/* Example styles for the notification */
+.Toastify__toast {
+    background-color: #000a;
+    backdrop-filter: blur(24px);
+    color: #fffa;
+    font-size: 16px;
+}
+
+.Toastify__toast-container--top-right {
+    top: calc(1em + 56px);
+}
+
+.Toastify__close-button {
+    width: 24px;
+    height: 24px;
+    padding: 4px 6px;
+    background: #000;
+}
+
+.Toastify__close-button:hover {
+    background: #f30;
+    color: white;
+}
+
+* {
+    --toastify-color-success: #0c0a;
+    --toastify-color-progress-success: #0c0a;
+    --toastify-icon-color-success: #0c0a;
+    --toastify-color-info: #07ca;
+    --toastify-color-progress-info: #07ca;
+    --toastify-icon-color-info: #07ca;
+    --toastify-color-error: #f30a;
+    --toastify-color-progress-error: #f30a;
+    --toastify-icon-color-error: #f30a;
+    --toastify-color-warning: #fa0a;
+    --toastify-color-progress-warning: #fa0a;
+    --toastify-icon-color-warning: #fa0a;
+    --toastify-z-index: 50;
+}
