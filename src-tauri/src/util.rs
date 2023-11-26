@@ -1,9 +1,20 @@
-use semver::VersionReq;
-use std::path::PathBuf;
 use std::env::consts::OS;
-use tauri::InvokeError;
 use std::io;
+use std::path::PathBuf;
+
+use semver::VersionReq;
+use tauri::InvokeError;
+
 use crate::game::{GameConfig, GameMetadata};
+
+#[cfg(target_os = "linux")]
+pub const PATH_SEPARATOR: &str = ":";
+
+#[cfg(target_os = "macos")]
+pub const PATH_SEPARATOR: &str = ":";
+
+#[cfg(target_os = "windows")]
+pub const PATH_SEPARATOR: &str = ";";
 
 pub fn get_version_req(cfg: &GameConfig) -> Result<VersionReq, Error> {
     let mut vv = cfg.sdk.versions.clone();
@@ -110,15 +121,6 @@ impl<T> From<std::sync::TryLockError<T>> for Error {
         Self::TryLock(error.to_string())
     }
 }
-
-#[cfg(target_os = "linux")]
-pub const PATH_SEPARATOR: &str = ":";
-
-#[cfg(target_os = "macos")]
-const PATH_SEPARATOR: &str = ":";
-
-#[cfg(target_os = "windows")]
-const PATH_SEPARATOR: &str = ";";
 
 pub fn show_error(x: &str) {
     println!("{}", x);

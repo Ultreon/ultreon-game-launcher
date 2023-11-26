@@ -1,13 +1,15 @@
-use zip::ZipArchive;
 use std::fs::File;
 use std::io;
 use std::path::{Path, PathBuf};
-use serde_json::from_reader;
-use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
-use crate::util::Error;
+
+use serde::{Deserialize, Serialize};
+use serde_json::from_reader;
+use zip::ZipArchive;
+
 use crate::game::{GameConfig, GameMetadata};
 use crate::show_error;
+use crate::util::Error;
 
 #[derive(Default)]
 pub struct Profiles(pub Mutex<Vec<Profile>>);
@@ -20,6 +22,7 @@ pub struct Profile {
 }
 
 impl Profile {
+    #[allow(dead_code)]
     fn clone(&self) -> Profile {
         Profile {
             game: self.game.clone(),
