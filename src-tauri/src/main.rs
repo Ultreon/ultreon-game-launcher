@@ -48,8 +48,6 @@ async fn launch(
 ) -> Result<i32, Error> {
     let client = crate::net::build_client()?;
 
-    return Err(Error::Launch("Hello there!".to_string()));
-
     let sdk_list: SDKList = sdk::fetch_sdk(client.to_owned())
         .await
         .map_err(|e| Error::Fetch(format!("Failed to fetch SDK: {:?}", e)))?;
