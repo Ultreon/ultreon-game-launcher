@@ -57,7 +57,7 @@ pub fn extract_tar_gz(app: AppHandle, name: &str, output_dir: &String, archive: 
 
         // Create parent directories if they don't exist
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(format!("{}/{:?}", out_dir, parent))
+            std::fs::create_dir_all(format!("{}/{}", out_dir, parent.to_string_lossy()))
                 .map_err(|e| format!("Failed to output directories: {:?}", e))?;
         }
 
