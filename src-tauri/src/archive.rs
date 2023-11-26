@@ -1,10 +1,12 @@
-use tauri::{AppHandle, Manager};
-use tar::Archive;
-use flate2::read::GzDecoder;
 use std::fs::File;
-use zip::ZipArchive;
-use std::path::Path;
 use std::io;
+use std::path::Path;
+
+use flate2::read::GzDecoder;
+use tar::Archive;
+use tauri::{AppHandle, Manager};
+use zip::ZipArchive;
+
 use crate::net::DownloadInfo;
 
 pub fn extract_tar_gz(app: AppHandle, name: &str, output_dir: &String, archive: &mut Archive<GzDecoder<File>>) -> Result<(), String> {
@@ -132,13 +134,18 @@ pub fn extract_zip(app: AppHandle, name: &str, output_dir: &String, archive: &mu
             }
         }
 
-        // Create the file
-        let mut dest_file = File::create(&dest_path).map_err(|e| format!("Failed to create destination file: {:?}", e))?;
+        if file.is_dir() {
+            std::fs::create_dir_all(&dest_path).map_err(|e| format!("Failed to create entry destination directory: {:?}", e))?;
+            println!("Extracting '{file_name}' -> '{:?}'", &dest_path.to_string_lossy());
+        } else {
+            // Create the file
+            let mut dest_file = File::create(&dest_path).map_err(|e| format!("Failed to create destination file: {:?}", e))?;
 
-        // Copy the contents of the file from the zip archive to the destination file
-        io::copy(&mut file, &mut dest_file).map_err(|e| format!("Failed to extract zip entry: {:?}", e))?;
-        let dest_name = dest_path.to_string_lossy();
-        println!("Extracting '{file_name}' -> '{dest_name}'");
+            // Copy the contents of the file from the zip archive to the destination file
+            io::copy(&mut file, &mut dest_file).map_err(|e| format!("Failed to extract zip entry: {:?}", e))?;
+            let dest_name = dest_path.to_string_lossy();
+            println!("Extracting '{file_name}' -> '{dest_name}'");
+        }
     }
 
     // Emit event

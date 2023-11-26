@@ -187,6 +187,8 @@ pub async fn retrieve_sdk(
         archive::extract_zip(app, name, &output_dir, archive)?;
     }
 
+    std::fs::remove_file(file_path).map_err(|e| format!("Failed to clean up downloaded SDK package: {:?}", e))?;
+
     Ok(true)
 }
 
