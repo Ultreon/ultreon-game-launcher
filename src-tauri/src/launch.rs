@@ -1,10 +1,17 @@
-use tauri::Window;
-use std::process::{exit, ExitStatus, Stdio};
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
+use std::process::{exit, ExitStatus, Stdio};
 use std::process;
+
+use tauri::Window;
+
 use crate::game::GameConfig;
 use crate::sdk::SDKInfo;
 use crate::util::{Error, PATH_SEPARATOR};
+
+#[cfg(target_os = "windows")]
+const DETACHED_PROCESS: u32 = 0x00000008;
 
 pub fn run_with_sdk(window: &Window, sdk_info: &SDKInfo, cfg: &GameConfig, data_dir: &String, cp: Vec<String>) -> Result<i32, Result<i32, Error>> {
     let sdk_path = prepare_run(sdk_info, cfg, data_dir);
@@ -44,13 +51,35 @@ fn run_game(
     cfg: &GameConfig,
     sdk_path: PathBuf,
 ) -> Result<ExitStatus, Error> {
-    let status = process::Command::new(sdk_path)
-        .args(["-cp", &cp, &cfg.main_class])
+    #[allow(unused_mut)]
+    #[cfg(target_os = "linux")]
+    let command = process::Command::new(sdk_path)
+        .args(&["-cp", &cp, &cfg.main_class])
+        .stderr(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stdin(Stdio::inherit())
+        .current_dir((&data_dir).to_string() + "/games/" + &cfg.game);
+
+    #[allow(unused_mut)]
+    #[cfg(target_os = "macos")]
+    let command = process::Command::new(sdk_path)
+        .args(&["-cp", &cp, &cfg.main_class])
+        .stderr(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stdin(Stdio::inherit())
+        .current_dir((&data_dir).to_string() + "/games/" + &cfg.game);
+
+    #[allow(unused_mut)]
+    #[cfg(target_os = "windows")]
+    let command = process::Command::new(sdk_path)
+        .args(&["-cp", &cp, &cfg.main_class])
         .stderr(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stdin(Stdio::inherit())
         .current_dir((&data_dir).to_string() + "/games/" + &cfg.game)
-        .spawn()?
-        .wait()?;
-    Ok(status)
+        .creation_flags(DETACHED_PROCESS); // Be careful: This only works on windows
+
+    let status = &mut command.spawn()?.wait()?;
+
+    Ok(*status)
 }
