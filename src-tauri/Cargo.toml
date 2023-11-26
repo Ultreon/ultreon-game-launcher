@@ -29,6 +29,7 @@ indicatif = "0.17.7"
 tokio = { version = "1.13.0", features = ["full"] }
 tokio-stream = "0.1.14"
 futures-util = "0.3.29"
+semver = "1.0.20"
 
 [dependencies.uuid]
 version = "1.6.1"

@@ -888,6 +888,7 @@ dependencies = [
  "indicatif",
  "msgbox",
  "reqwest",
+ "semver",
  "serde",
  "serde_json",
  "tar",

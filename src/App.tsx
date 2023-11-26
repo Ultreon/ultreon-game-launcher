@@ -75,7 +75,7 @@ function TitleButtonsOther() {
 function TitleBarText() {
   return (
     <div>
-      <p className="TitleBarText" data-tauri-drag-region>
+      <p className="TitleBarText" data-tauri-drag-region="true">
         Ultreon Game Launcher
       </p>
     </div>
@@ -84,7 +84,7 @@ function TitleBarText() {
 
 function TitleBar() {
   return (
-    <div className="TitleBar" data-tauri-drag-region>
+    <div className="TitleBar" data-tauri-drag-region="true">
       {TitleButtonsOther()}
     </div>
   );
@@ -214,7 +214,7 @@ export default function App() {
       }
     };
 
-    loadProfiles();
+    loadProfiles().then(() => {});
   }, []);
 
   useEffect(() => {
