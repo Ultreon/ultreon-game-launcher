@@ -45,6 +45,7 @@ fn prepare_run(sdk_info: &SDKInfo, cfg: &GameConfig, data_dir: &String) -> PathB
     sdk_path
 }
 
+//noinspection DuplicatedCode
 fn run_game(
     data_dir: &String,
     cp: &String,
@@ -53,33 +54,34 @@ fn run_game(
 ) -> Result<ExitStatus, Error> {
     #[allow(unused_mut)]
     #[cfg(target_os = "linux")]
-    let command = process::Command::new(sdk_path)
-        .args(&["-cp", &cp, &cfg.main_class])
-        .stderr(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .stdin(Stdio::inherit())
-        .current_dir((&data_dir).to_string() + "/games/" + &cfg.game);
-
-    #[allow(unused_mut)]
-    #[cfg(target_os = "macos")]
-    let command = process::Command::new(sdk_path)
-        .args(&["-cp", &cp, &cfg.main_class])
-        .stderr(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .stdin(Stdio::inherit())
-        .current_dir((&data_dir).to_string() + "/games/" + &cfg.game);
-
-    #[allow(unused_mut)]
-    #[cfg(target_os = "windows")]
-    let command = process::Command::new(sdk_path)
-        .args(&["-cp", &cp, &cfg.main_class])
+    let status = process::Command::new(sdk_path)
+        .args(["-cp", &cp, &cfg.main_class])
         .stderr(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stdin(Stdio::inherit())
         .current_dir((&data_dir).to_string() + "/games/" + &cfg.game)
-        .creation_flags(DETACHED_PROCESS); // Be careful: This only works on windows
+        .spawn()?.wait()?;
 
-    let status = &mut command.spawn()?.wait()?;
+    #[allow(unused_mut)]
+    #[cfg(target_os = "macos")]
+        let status = process::Command::new(sdk_path)
+        .args(["-cp", &cp, &cfg.main_class])
+        .stderr(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stdin(Stdio::inherit())
+        .current_dir((&data_dir).to_string() + "/games/" + &cfg.game)
+        .spawn()?.wait()?;
 
-    Ok(*status)
+    #[allow(unused_mut)]
+    #[cfg(target_os = "windows")]
+        let status = process::Command::new(sdk_path)
+        .args(["-cp", &cp, &cfg.main_class])
+        .stderr(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stdin(Stdio::inherit())
+        .current_dir((&data_dir).to_string() + "/games/" + &cfg.game)
+        .creation_flags(DETACHED_PROCESS)
+        .spawn()?.wait()?;
+
+    Ok(status)
 }
