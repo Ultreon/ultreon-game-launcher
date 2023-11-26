@@ -1,14 +1,16 @@
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env::consts::{ARCH, OS};
-use semver::{Version, VersionReq};
-use tauri::AppHandle;
-use reqwest::Client;
-use std::path::Path;
 use std::fs::File;
+use std::path::Path;
+
 use flate2::read::GzDecoder;
+use reqwest::Client;
+use semver::{Version, VersionReq};
+use serde::{Deserialize, Serialize};
 use tar::Archive;
+use tauri::AppHandle;
 use zip::ZipArchive;
+
 use crate::archive;
 use crate::game::{GameConfig, GameMetadata};
 use crate::util::Error;
@@ -176,11 +178,11 @@ pub async fn retrieve_sdk(
         .map_err(|e| format!("Failed to download SDK: {:?}", e))?;
 
     let file = File::open(file_path).map_err(|e| format!("Failed to open SDK package: {:?}", e))?;
-    if file_path.extension().unwrap() == ".tar.gz" {
+    if file_path.file_name().unwrap().to_string_lossy().ends_with(".tar.gz") {
         let decompressed = GzDecoder::new(file);
         let mut archive = Archive::new(decompressed);
         archive::extract_tar_gz(app, name, &output_dir, &mut archive)?;
-    } else if file_path.extension().unwrap() == ".zip" {
+    } else if file_path.file_name().unwrap().to_string_lossy().ends_with(".zip") {
         let archive = &mut ZipArchive::new(file).map_err(|e| format!("Failed to open SDK package: {:?}", e))?;
         archive::extract_zip(app, name, &output_dir, archive)?;
     }

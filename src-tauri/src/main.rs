@@ -1,4 +1,4 @@
-// Prevents additional console window on Wipub(crate)pub(crate)ndows in release, DO NOT REMOVE!!
+// Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 extern crate msgbox;
@@ -46,7 +46,7 @@ async fn launch(
     window: Window,
     profile: Profile,
 ) -> Result<i32, Error> {
-    let client = crate::net::build_client()?;
+    let client = net::build_client()?;
 
     let sdk_list: SDKList = sdk::fetch_sdk(client.to_owned())
         .await
@@ -54,9 +54,9 @@ async fn launch(
 
     let version_dir =
         "games/".to_string() + "/" + &profile.game + "/versions/" + &profile.version + "/";
-    let cfg = crate::profiles::read_cfg(&version_dir)
+    let cfg = profiles::read_cfg(&version_dir)
         .map_err(|e| Error::Launch(format!("Failed to read version config: {:?}", e)))?;
-    let _meta = crate::profiles::read_meta(&version_dir)
+    let _meta = profiles::read_meta(&version_dir)
         .map_err(|e| Error::Launch(format!("Failed to read version metadata, {:?}", e)))?;
     let sdk_info_map = sdk_list
         .0
@@ -90,9 +90,9 @@ async fn launch(
 
     let version_dir = "games/".to_string() + "/" + &game + "/versions/" + &version + "/";
 
-    let cfg = crate::profiles::read_cfg(&version_dir)
+    let cfg = profiles::read_cfg(&version_dir)
         .map_err(|e| Error::Launch(format!("Failed to read version config: {:?}", e)))?;
-    let meta = crate::profiles::read_meta(&version_dir)
+    let meta = profiles::read_meta(&version_dir)
         .map_err(|e| Error::Launch(format!("Failed to read version metadata, {:?}", e)))?;
 
     let binding = util::get_data_dir();
@@ -163,7 +163,8 @@ fn import(profile_state: State<'_, Profiles>, name: String) -> Result<Profile, E
         .to_owned();
 
     let file = File::open(path)?;
-    let profile = crate::profiles::list_zip_contents(&file, &name)?;
+    #[allow(unused_qualifications)]
+        let profile = crate::profiles::list_zip_contents(&file, &name)?;
     drop(file);
 
     let mut profile_mutex = profile_state.inner().0.try_lock()?;
