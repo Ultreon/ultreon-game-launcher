@@ -327,6 +327,7 @@ button.ProfileEntry:not(:last-child) {
     height: 100vh;
     background: #0005;
     -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
     border-radius: 16px;
     justify-content: center;
     align-content: center;
