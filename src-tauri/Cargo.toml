@@ -1,6 +1,6 @@
 [package]
 name = "game-launcher"
-version = "0.1.0"
+version = "0.1.1"
 description = "A launcher for games by Ultreon"
 authors = ["Ultreon", "XyperCode"]
 license = ""
